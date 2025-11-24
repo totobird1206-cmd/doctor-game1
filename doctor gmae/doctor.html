@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小醫生遊戲 (醫生圖片版)</title>
+    <style>
+        /* 全局設定 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #FFF3E0;
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* 遊戲容器 */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            background: linear-gradient(180deg, #FFCCBC 0%, #FFF8E1 50%);
+            overflow: hidden;
+        }
+
+        /* 地板 */
+        .floor {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 30%;
+            background-color: #D7CCC8;
+            border-top: 8px solid #8D6E63;
+        }
+
+        /* 門 */
+        .door {
+            position: absolute;
+            left: 0;
+            bottom: 25%;
+            width: 80px;
+            height: 150px;
+            background-color: #8D6E63;
+            border-radius: 0 10px 0 0;
+            z-index: 1;
+        }
+        .door-inner {
+            width: 70px;
+            height: 140px;
+            background-color: #5D4037;
+            margin-top: 10px;
+            border-radius: 0 8px 0 0;
+        }
+
+        /* --- 這裡改成了圖片設定 --- */
+        #doctor-img {
+            position: absolute;
+            right: 10px;   /* 靠右距離 */
+            bottom: 10%;   /* 底部距離，可依圖片長寬微調 */
+            width: 200px;  /* 醫生圖片寬度，可自行調整 */
+            height: auto;  /* 高度自動維持比例 */
+            z-index: 10;
+            transition: transform 0.5s; /* 讓跳躍動畫順暢 */
+            
+            /* 如果是去背圖，加一點陰影會更有立體感 */
+            filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.3));
+        }
+
+        /* 動物區域 (維持 Emoji 貼紙風格) */
+        #animal-stage {
+            position: absolute;
+            left: -300px;
+            bottom: 15%;
+            width: 180px;
+            height: 180px;
+            z-index: 5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: left 1.5s ease-in-out, transform 0.5s;
+        }
+        .animal-sticker {
+            font-size: 130px;
+            filter: drop-shadow(2px 4px 0px rgba(0,0,0,0.2));
+        }
+
+        /* 對話框 */
+        #bubble {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border: 6px solid #FFAB91;
+            border-radius: 30px;
+            padding: 20px;
+            width: 85%;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #444;
+            display: none;
+            z-index: 20;
+            box-shadow: 5px 5px 10px rgba(0,0,0,0.1);
+        }
+
+        /* 選項區 */
+        #options-panel {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            z-index: 30;
+            display: none;
+        }
+        .option-btn {
+            background: white;
+            border: 6px solid #81C784;
+            border-radius: 50%;
+            width: 85px;
+            height: 85px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 6px 0 #388E3C;
+            transition: transform 0.1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .option-btn:active {
+            transform: scale(0.9);
+            box-shadow: 0 2px 0 #388E3C;
+        }
+        .emoji-icon {
+            font-size: 45px;
+            pointer-events: none;
+        }
+
+        /* 開始畫面 */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.98);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        #start-btn {
+            margin-top: 30px;
+            padding: 25px 60px;
+            font-size: 30px;
+            font-weight: bold;
+            background: #FF4081;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            box-shadow: 0 10px 0 #C51162;
+            animation: pulse 1.5s infinite;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        #start-btn:active {
+            background: #F50057;
+            transform: translateY(5px);
+            box-shadow: 0 5px 0 #C51162;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #progress {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #555;
+            z-index: 50;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <audio id="bgm" loop>
+        <source src="bgm.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="progress">準備中...</div>
+    <div class="door"><div class="door-inner"></div></div>
+    <div class="floor"></div>
+
+    <img id="doctor-img" src="doctor.png" alt="醫生" onerror="alert('找不到 doctor.png，請確定圖片有放在資料夾中喔！')">
+
+    <div id="animal-stage"></div>
+    <div id="bubble"></div>
+    <div id="options-panel"></div>
+
+    <div id="start-screen">
+        <h1 style="color:#FF4081; font-size: 40px;">小醫生遊戲</h1>
+        <p style="font-size: 18px; color: #666; margin-bottom: 20px;">請開啟音量遊玩喔！</p>
+        <button id="start-btn">開始看診</button>
+    </div>
+</div>
+
+<script>
+    const animalsData = [
+        { name: "獅子", emoji: "🦁", text: "醫生救命，我發燒了！", correct: "icepack", options: [{ type: "icepack", icon: "🧊" }, { type: "candy", icon: "🍭" }, { type: "ball", icon: "⚽" }] },
+        { name: "兔子", emoji: "🐰", text: "哎喲，我肚子好痛喔...", correct: "medicine", options: [{ type: "pizza", icon: "🍕" }, { type: "medicine", icon: "🧪" }, { type: "car", icon: "🚗" }] },
+        { name: "大象", emoji: "🐘", text: "哈啾！我感冒流鼻涕。", correct: "tissue", options: [{ type: "tissue", icon: "🧻" }, { type: "hammer", icon: "🔨" }, { type: "icecream", icon: "🍦" }] },
+        { name: "猴子", emoji: "🐵", text: "好痛喔！我跌倒流血了。", correct: "bandaid", options: [{ type: "cactus", icon: "🌵" }, { type: "bandaid", icon: "🩹" }, { type: "chili", icon: "🌶️" }] },
+        { name: "小狗", emoji: "🐶", text: "腳底刺到尖尖的刺了！", correct: "tweezers", options: [{ type: "rock", icon: "🪨" }, { type: "tweezers", icon: "🔧" }, { type: "balloon", icon: "🎈" }] },
+        { name: "貓咪", emoji: "🐱", text: "牙齒痛痛的...", correct: "toothbrush", options: [{ type: "candy", icon: "🍬" }, { type: "toothbrush", icon: "🪥" }, { type: "drum", icon: "🥁" }] },
+        { name: "小豬", emoji: "🐷", text: "眼睛霧霧的，看不清楚。", correct: "glasses", options: [{ type: "glasses", icon: "👓" }, { type: "lamp", icon: "💡" }, { type: "banana", icon: "🍌" }] },
+        { name: "小熊", emoji: "🐻", text: "我不小心摔斷手了。", correct: "bandage", options: [{ type: "feather", icon: "🪶" }, { type: "snake", icon: "🐍" }, { type: "bandage", icon: "🤕" }] },
+        { name: "小鳥", emoji: "🐥", text: "喉嚨好痛，沒有聲音。", correct: "syrup", options: [{ type: "syrup", icon: "🍯" }, { type: "sand", icon: "⏳" }, { type: "scissor", icon: "✂️" }] },
+        { name: "青蛙", emoji: "🐸", text: "好熱喔，我快中暑了！", correct: "fan", options: [{ type: "fire", icon: "🔥" }, { type: "fan", icon: "💨" }, { type: "coat", icon: "🧥" }] }
+    ];
+
+    let currentIndex = 0;
+    let isTreating = false;
+    let audioCtx = null;
+    let gameStarted = false;
+
+    // 手機按鈕修復邏輯
+    const startBtn = document.getElementById('start-btn');
+    
+    startBtn.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        initGameLogic();
+    }, { passive: false });
+
+    startBtn.addEventListener('click', function(e) {
+        initGameLogic();
+    });
+
+    function initGameLogic() {
+        if (gameStarted) return;
+        gameStarted = true;
+
+        startBtn.textContent = "啟動中...";
+        startBtn.style.backgroundColor = "#aaa";
+
+        initAudio();
+
+        setTimeout(() => {
+            document.getElementById('start-screen').style.display = 'none';
+            startGame();
+        }, 300);
+    }
+
+    function initAudio() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            }
+            const bgm = document.getElementById('bgm');
+            if(bgm) { 
+                bgm.volume = 0.2; 
+                bgm.play().catch(() => {}); 
+            }
+        } catch (e) { }
+    }
+
+    function playSound(type) {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        try {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(660, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'fail') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0.001, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        } catch (e) {}
+    }
+
+    function speak(text, pitch = 1) {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-TW';
+        utterance.rate = 0.9;
+        utterance.pitch = pitch;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function startGame() {
+        updateProgress();
+        loadAnimal();
+    }
+
+    function updateProgress() {
+        document.getElementById('progress').textContent = `第 ${currentIndex + 1} / ${animalsData.length} 位病人`;
+    }
+
+    function loadAnimal() {
+        if (currentIndex >= animalsData.length) {
+            const bubble = document.getElementById('bubble');
+            bubble.textContent = "太棒了！所有小動物都健康了！";
+            bubble.style.display = 'block';
+            speak("太棒了！所有小動物都健康了！你真是個好醫生！", 1.2);
+            
+            // 🌟 醫生圖片跳躍動畫 🌟
+            const doc = document.getElementById('doctor-img');
+            doc.style.transition = "transform 0.5s";
+            doc.style.transform = "translateY(-30px)";
+            return;
+        }
+
+        const data = animalsData[currentIndex];
+        const stage = document.getElementById('animal-stage');
+        const bubble = document.getElementById('bubble');
+        const optionsPanel = document.getElementById('options-panel');
+        
+        bubble.style.display = 'none';
+        optionsPanel.style.display = 'none';
+        optionsPanel.innerHTML = '';
+
+        stage.innerHTML = `<div class="animal-sticker">${data.emoji}</div>`;
+        
+        stage.style.transition = "none";
+        stage.style.left = "-300px";
+        
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                stage.style.transition = "left 1.5s ease-in-out";
+                stage.style.left = '20%';
+            });
+        });
+
+        setTimeout(() => {
+            bubble.textContent = data.text;
+            bubble.style.display = 'block';
+            speak(data.text, 1.4);
+            setTimeout(() => {
+                showOptions(data);
+            }, 1000);
+        }, 1500);
+    }
+
+    function showOptions(data) {
+        const panel = document.getElementById('options-panel');
+        panel.style.display = 'flex';
+        const shuffledOptions = [...data.options].sort(() => Math.random() - 0.5);
+
+        shuffledOptions.forEach(opt => {
+            const btn = document.createElement('div');
+            btn.className = 'option-btn';
+            btn.innerHTML = `<div class="emoji-icon">${opt.icon}</div>`;
+            
+            const handleOptionClick = (e) => {
+                e.preventDefault(); 
+                checkAnswer(opt.type, data.correct);
+            };
+
+            btn.addEventListener('touchstart', handleOptionClick, {passive: false});
+            btn.addEventListener('click', handleOptionClick);
+            
+            panel.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected, correct) {
+        if (isTreating) return;
+
+        if (selected === correct) {
+            isTreating = true;
+            playSound('success');
+            
+            const bubble = document.getElementById('bubble');
+            bubble.textContent = "謝謝醫生！";
+            speak("謝謝醫生！好舒服喔！", 1.4);
+
+            document.getElementById('options-panel').style.display = 'none';
+
+            const stage = document.getElementById('animal-stage');
+            stage.style.transition = "transform 0.5s";
+            stage.style.transform = "translateY(-50px) rotate(10deg)";
+
+            setTimeout(() => {
+                stage.style.transform = "translateY(0)";
+                setTimeout(nextLevel, 2000);
+            }, 300);
+
+        } else {
+            playSound('fail');
+            speak("嗯？好像不是這個耶？", 1.1);
+            
+            // 🌟 醫生圖片疑惑搖擺動畫 🌟
+            const doc = document.getElementById('doctor-img');
+            doc.style.transition = "transform 0.1s";
+            doc.style.transform = "rotate(15deg)";
+            setTimeout(() => doc.style.transform = "rotate(-15deg)", 100);
+            setTimeout(() => doc.style.transform = "rotate(0deg)", 200);
+        }
+    }
+
+    function nextLevel() {
+        const stage = document.getElementById('animal-stage');
+        stage.style.left = '120%';
+        
+        isTreating = false;
+        currentIndex++;
+        updateProgress();
+        
+        setTimeout(loadAnimal, 1500);
+    }
+</script>
+
+</body>
+</html>
